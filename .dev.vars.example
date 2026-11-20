@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local development. Never commit .dev.vars.
+# Get a key at https://openrouter.ai/keys
+OPENROUTER_API_KEY=
+
+# Paid OpenRouter models stay disabled unless this is "true".
+# ALLOW_PAID_MODELS=false

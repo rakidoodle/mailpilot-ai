@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { CategoryBadge, PriorityBadge } from "../components/Badges";
 import { DataSourceNotice } from "../components/DataSourceNotice";
 import { PageHeader } from "../components/PageHeader";
@@ -76,10 +77,11 @@ export function Inbox() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {visibleEmails.map((email) => (
-              <li
-                key={email.id}
-                className="cursor-pointer px-5 py-4 transition-colors hover:bg-slate-50"
-              >
+              <li key={email.id}>
+                <Link
+                  to={`/inbox/${email.id}`}
+                  className="block px-5 py-4 transition-colors hover:bg-slate-50"
+                >
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     aria-hidden
@@ -110,6 +112,7 @@ export function Inbox() {
                     {email.account}
                   </span>
                 </div>
+                </Link>
               </li>
             ))}
           </ul>
