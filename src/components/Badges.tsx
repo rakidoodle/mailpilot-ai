@@ -1,4 +1,4 @@
-import type { Category, Priority } from "../data/mockEmails";
+import type { Category, Priority } from "../../shared/types";
 
 const categoryStyles: Record<Category, string> = {
   Work: "bg-blue-50 text-blue-700 ring-blue-600/10",

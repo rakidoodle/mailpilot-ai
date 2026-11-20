@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { CategoryBadge, PriorityBadge } from "../components/Badges";
+import { DataSourceNotice } from "../components/DataSourceNotice";
 import { PageHeader } from "../components/PageHeader";
-import { mockEmails, type Category } from "../data/mockEmails";
+import { useEmails } from "../hooks/useEmails";
+import type { Category } from "../../shared/types";
 
 const filters: Array<Category | "All"> = [
   "All",
@@ -23,14 +25,15 @@ function formatDateTime(iso: string) {
 }
 
 export function Inbox() {
+  const { emails, isLoading, source, error, reload } = useEmails();
   const [activeFilter, setActiveFilter] = useState<Category | "All">("All");
 
-  const emails = useMemo(
+  const visibleEmails = useMemo(
     () =>
       activeFilter === "All"
-        ? mockEmails
-        : mockEmails.filter((email) => email.category === activeFilter),
-    [activeFilter],
+        ? emails
+        : emails.filter((email) => email.category === activeFilter),
+    [emails, activeFilter],
   );
 
   return (
@@ -39,6 +42,10 @@ export function Inbox() {
         title="Inbox"
         description="Demo messages classified and summarized by AI agents."
       />
+
+      {source === "demo" && !isLoading && (
+        <DataSourceNotice error={error} onRetry={reload} />
+      )}
 
       <div className="mb-4 flex flex-wrap gap-2">
         {filters.map((filter) => (
@@ -58,13 +65,17 @@ export function Inbox() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        {emails.length === 0 ? (
+        {isLoading ? (
+          <div className="px-5 py-16 text-center text-sm text-slate-500">
+            Loading emails…
+          </div>
+        ) : visibleEmails.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-slate-500">
             No emails in this category.
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {emails.map((email) => (
+            {visibleEmails.map((email) => (
               <li
                 key={email.id}
                 className="cursor-pointer px-5 py-4 transition-colors hover:bg-slate-50"
@@ -106,7 +117,9 @@ export function Inbox() {
       </div>
 
       <p className="mt-3 text-xs text-slate-400">
-        Fictional data. Live Gmail sync arrives in Milestone 6.
+        {source === "api"
+          ? "Loaded from the local D1 database via /api/emails."
+          : "Fictional data. Run npm run dev:api and npm run db:migrate:local for live data."}
       </p>
     </div>
   );

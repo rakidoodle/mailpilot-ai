@@ -15,6 +15,10 @@ dist-ssr
 # Environment variables (never commit secrets)
 .env
 .env.*
+.dev.vars
+
+# Wrangler local state (SQLite D1 data, caches)
+.wrangler
 
 # Editor directories and files
 .vscode/*

@@ -1,30 +1,9 @@
-export type Category =
-  | "Work"
-  | "Personal"
-  | "Promotions"
-  | "Support"
-  | "Finance"
-  | "Other";
+import type { EmailListItem } from "../../shared/types";
 
-export type Priority = "High" | "Medium" | "Low";
-
-export interface Email {
-  id: string;
-  account: string;
-  from: string;
-  fromEmail: string;
-  subject: string;
-  preview: string;
-  category: Category;
-  priority: Priority;
-  summary: string;
-  receivedAt: string;
-  unread: boolean;
-}
-
-// Fictional data for UI development. Never replace with real inbox content
-// inside committed fixtures.
-export const mockEmails: Email[] = [
+// Fictional data for UI development and offline fallback when the worker is not
+// running. The same rows are seeded into D1 by migrations/0002_seed_demo.sql.
+// Never replace with real inbox content inside committed fixtures.
+export const mockEmails: EmailListItem[] = [
   {
     id: "em_001",
     account: "hello@northwind.studio",
