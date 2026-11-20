@@ -1,29 +1,26 @@
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { AppLayout } from "./components/AppLayout";
+import { AgentActivity } from "./pages/AgentActivity";
+import { Analytics } from "./pages/Analytics";
+import { Dashboard } from "./pages/Dashboard";
+import { Inbox } from "./pages/Inbox";
+import { ScheduledEmails } from "./pages/ScheduledEmails";
+import { Settings } from "./pages/Settings";
+
 function App() {
   return (
-    <main
-      style={{
-        fontFamily: "system-ui",
-        maxWidth: "720px",
-        margin: "0 auto",
-        padding: "48px 24px",
-      }}
-    >
-      <h1 style={{ fontSize: "2.5rem", marginBottom: "8px" }}>MailPilot AI</h1>
-      <p
-        style={{
-          color: "#4b5563",
-          fontSize: "1.125rem",
-          marginBottom: "32px",
-        }}
-      >
-        AI email automation with specialized agents.
-      </p>
-      <ul style={{ lineHeight: 1.9 }}>
-        <li>Connect multiple Gmail accounts</li>
-        <li>Classify, summarize, and prioritize email</li>
-        <li>Draft replies you approve before sending</li>
-      </ul>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="inbox" element={<Inbox />} />
+          <Route path="scheduled" element={<ScheduledEmails />} />
+          <Route path="activity" element={<AgentActivity />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
 
