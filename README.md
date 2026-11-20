@@ -4,9 +4,9 @@ AI email automation platform that connects multiple Gmail accounts, analyzes
 messages with specialized AI agents, drafts replies for human approval, and
 schedules delivery — with a dashboard for agent activity and analytics.
 
-> **Status:** early development, running locally. Gmail OAuth and manual sync
-> are implemented but not yet verified against live Google credentials.
-> Scheduled sending is not implemented. See [Roadmap](#roadmap).
+> **Status:** early development, running locally. Gmail OAuth, sync, and
+> approved scheduled sending are implemented but not yet verified against live
+> Google credentials. See [Roadmap](#roadmap).
 
 ## Features
 
@@ -19,14 +19,18 @@ Working today:
 - Three specialized agents — classification, summarization, reply drafting —
   with JSON validation, one retry on invalid output, and per-run logging
 - Agent Activity table: model, status, duration, tokens, estimated cost, errors
-- Gmail OAuth connect/disconnect with read-only scope, AES-GCM encrypted
+- Gmail OAuth connect/disconnect with read + send scopes, AES-GCM encrypted
   refresh tokens, manual Sync Inbox (last 30 days, 25 messages per account)
+- Two-step scheduling: schedule a reply draft, then explicitly approve it.
+  Nothing sends without an approval timestamp
+- Cron sender (every 5 minutes) with atomic row claiming, duplicate-send
+  protection, attempt tracking, and an audit trail of schedule/approve/cancel/
+  send events. "Send due now" triggers the same job manually
 - Hono API on Cloudflare Workers, D1 storage, SPA served from the same Worker
 - Offline fallback to bundled demo data when the API is down
 
 Planned (not yet built):
 
-- Human-approved scheduled sending with Cloudflare Cron Triggers
 - Live analytics charts
 - Automated Google API integration tests
 - Public demo mode and deployment
@@ -40,8 +44,8 @@ Planned (not yet built):
 | Database | Cloudflare D1 (SQLite) with SQL migrations |
 | AI | OpenRouter API, Zod-validated agent output |
 | Testing | Vitest |
-| Email (planned) | Gmail API, Google OAuth 2.0 |
-| Scheduling (planned) | Cloudflare Cron Triggers |
+| Email | Gmail API, Google OAuth 2.0 (PKCE) |
+| Scheduling | Cloudflare Cron Triggers |
 
 ## Architecture
 
@@ -55,7 +59,8 @@ flowchart LR
   A --> R[Reply]
   C & S & R --> O
   W -->|OAuth + sync| G[Gmail API]
-  C2[Cron Trigger<br/>planned] -.-> W
+  W -->|approved sends| G
+  C2[Cron Trigger<br/>every 5 min] --> W
 ```
 
 One Worker serves the built SPA (`dist/`) and the API. `run_worker_first:
@@ -66,6 +71,14 @@ The orchestrator runs agents in order: classification, then summarization,
 then reply. The reply agent receives the earlier outputs as context. Each step
 is isolated — a failed step is logged and does not block the next one. Every
 run is written to `agent_runs` with model, duration, tokens, and estimated cost.
+
+Scheduled mail stays in `scheduled_emails` until its send time. The cron job
+selects rows that are approved, still `pending`, and due, then claims each row
+with a conditional `UPDATE ... WHERE status = 'pending'`. If two cron runs
+overlap, only one claim changes a row, so the same email cannot be sent twice.
+A failure is stored with its error and is never retried automatically, because
+a timed-out request may already have delivered. Each attempt is recorded in
+`audit_events`.
 
 ## Getting started
 
@@ -94,10 +107,20 @@ API), but agent runs return `openrouter_not_configured`.
    `TOKEN_ENCRYPTION_KEY=$(openssl rand -base64 32)`.
 5. Restart the worker, open Settings, press Connect Gmail.
 
-Scopes requested: `gmail.readonly` only. Sending is added when scheduling
-lands, which may require re-consent. Google's Testing mode issues refresh
-tokens that expire after 7 days, so expect to reconnect during development.
-Accounts, tokens, and synced mail can be deleted from Settings.
+Scopes requested: `gmail.readonly` and `gmail.send`. Google's Testing mode
+issues refresh tokens that expire after 7 days, so expect to reconnect during
+development. Accounts, tokens, and synced mail can be deleted from Settings.
+
+To verify the cron handler locally without waiting for a real trigger:
+
+```bash
+npm run dev:api:scheduled
+curl "http://127.0.0.1:8787/__scheduled?cron=*+*+*+*+*"
+```
+
+The seeded demo accounts have no tokens, so a due send fails with
+"Gmail account is not connected" — that failure is recorded, not swallowed.
+To send for real, connect a Gmail account first.
 
 Local D1 data lives in `.wrangler/` (git-ignored). Reset by deleting that folder
 and re-running the migration command.
@@ -111,6 +134,8 @@ and re-running the migration command.
 - Paid models are blocked unless `ALLOW_PAID_MODELS=true`. Keep it off for $0.
 - Cloudflare Workers, D1, and Cron Triggers have free allowances but a deployed
   multi-account Gmail app may need Google verification.
+- Cron runs every 5 minutes, so a scheduled email can go out up to 5 minutes
+  after its stated time. Gmail's per-user send quotas still apply.
 
 ## API
 
@@ -130,6 +155,11 @@ and re-running the migration command.
 | `GET /api/gmail/accounts` | Connected accounts with `connected` flag |
 | `DELETE /api/gmail/accounts/:id` | Disconnect and delete synced mail |
 | `POST /api/gmail/sync` | Refresh tokens and import recent messages |
+| `GET /api/scheduled` | Queue with status, approval, attempts, errors |
+| `POST /api/scheduled` | Create a draft reply and a pending scheduled email |
+| `POST /api/scheduled/:id/approve` | Arm a pending email for sending |
+| `POST /api/scheduled/:id/cancel` | Cancel a pending or failed email |
+| `POST /api/scheduled/process` | Run the due-queue job immediately |
 
 Unknown `/api/*` paths return JSON `404`. There is no user authentication yet:
 all routes operate as the seeded demo user `usr_demo`. Every Gmail query filters
@@ -143,6 +173,8 @@ Schema migrations in `migrations/`:
   `drafts`, `scheduled_emails`, `audit_events`
 - `0002_seed_demo.sql`: fictional user, accounts, and emails
 - `0003_settings.sql`: `settings` (selected OpenRouter model)
+- `0004_gmail.sql`: `oauth_states`, `last_synced_at`
+- `0005_scheduled.sql`: `message_id`, `attempts`, `last_attempt_at`, due index
 
 ```bash
 npm run db:migrate:local     # apply to local SQLite
@@ -155,6 +187,7 @@ npm run db:migrate:remote    # apply to the deployed D1 database
 | --- | --- |
 | `npm run dev` | Vite dev server with HMR |
 | `npm run dev:api` | Hono worker via `wrangler dev` on :8787 |
+| `npm run dev:api:scheduled` | Same, with `/__scheduled` for cron testing |
 | `npm run build` | Type-check all tsconfigs, then build `dist/` |
 | `npm run test` | Vitest unit tests (mocked OpenRouter) |
 | `npm run lint` | Lint with oxlint |
@@ -166,11 +199,13 @@ npm run db:migrate:remote    # apply to the deployed D1 database
 npm test
 ```
 
-27 unit tests (Vitest): model pricing/filtering, tolerant JSON parsing, cost
+35 unit tests (Vitest): model pricing/filtering, tolerant JSON parsing, cost
 estimation, Zod schema rejection, agent retry and failure isolation, OpenRouter
 HTTP errors, AES-GCM round-trip and tamper rejection, PKCE derivation, OAuth URL
-parameters, Gmail message/body mapping, and token refresh success/failure. No
-network calls: `fetch` is mocked.
+parameters, Gmail message/body mapping, token refresh success/failure, raw MIME
+building (CRLF, base64 body, RFC 2047 subjects, header-injection stripping), and
+the due-queue sender (missing credentials, lost claim, failed decryption, cron
+wiring). No network calls: `fetch` is mocked.
 
 ## Environment variables
 
@@ -197,6 +232,13 @@ access tokens stay in worker memory only. OAuth uses PKCE plus single-use,
 10-minute state rows bound to the user. Refresh tokens never reach the browser.
 Sync and disconnect both filter by `user_id`.
 
+Sending is opt-in twice: a message is created unapproved, and only an explicit
+approve action arms it. The queue sender re-checks that approval and the due
+time in SQL, claims rows atomically before any network call, and writes an
+audit event for every outcome. Outgoing MIME headers strip line breaks to block
+header injection. The UI never fabricates sent status: a send that Gmail rejects
+shows as `failed` with the provider error.
+
 ## Roadmap
 
 1. Foundations ✅
@@ -206,7 +248,8 @@ Sync and disconnect both filter by `user_id`.
 5. Agents and activity log ✅
 6. Gmail — OAuth, encryption, multi-account, manual sync (code complete,
    live connection pending Google credentials)
-7. Scheduling — approval, cron sending, statuses
+7. Scheduling — approval, cron sending, statuses (code complete, live delivery
+   pending Google credentials)
 8. Analytics and broader tests
 9. Deployment, demo mode, portfolio docs
 

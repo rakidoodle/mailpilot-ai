@@ -3,6 +3,7 @@ import { ArrowLeft, Copy, Loader2, Sparkles } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { CategoryBadge, PriorityBadge } from "../components/Badges";
 import { PageHeader } from "../components/PageHeader";
+import { ScheduleReplyCard } from "../components/ScheduleReplyCard";
 import type { EmailListItem } from "../../shared/types";
 
 type Tone = "professional" | "friendly" | "concise";
@@ -268,6 +269,18 @@ export function EmailDetail() {
               )}
             </section>
           ))}
+
+          {reply?.output?.body && (
+            <ScheduleReplyCard
+              key={reply.output.body}
+              emailId={email.id}
+              fromAccount={email.account}
+              to={email.fromEmail}
+              defaultSubject={`Re: ${email.subject}`}
+              defaultBody={reply.output.body}
+              tone={tone}
+            />
+          )}
         </aside>
       </div>
     </div>

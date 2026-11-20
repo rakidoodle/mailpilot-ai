@@ -14,10 +14,13 @@ import {
 } from "./openrouter";
 import type { EmailListItem, EmailsResponse } from "../shared/types";
 import { DEMO_USER_ID, type Bindings } from "./env";
+import { processDueScheduled } from "./mailer";
 import gmail from "./routes/gmail";
+import scheduled from "./routes/scheduled";
 
 interface EmailRow {
   id: string;
+  account_id: string;
   account_email: string;
   sender_name: string;
   sender_email: string;
@@ -54,6 +57,7 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 const EMAIL_SELECT = `SELECT
   e.id,
+  e.account_id,
   a.email AS account_email,
   e.sender_name,
   e.sender_email,
@@ -147,7 +151,11 @@ app.get("/api/emails/:id", async (c) => {
         404,
       );
     }
-    return c.json({ email: toEmail(row), bodyText: row.body_text ?? "" });
+    return c.json({
+      email: toEmail(row),
+      accountId: row.account_id,
+      bodyText: row.body_text ?? "",
+    });
   } catch (error) {
     console.error("GET /api/emails/:id failed", error);
     return c.json(
@@ -452,6 +460,7 @@ app.post("/api/agents/run", async (c) => {
 });
 
 app.route("/api/gmail", gmail);
+app.route("/api/scheduled", scheduled);
 
 app.notFound((c) => {
   return c.json(
@@ -460,4 +469,14 @@ app.notFound((c) => {
   );
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  /**
+   * Cron entry point. `processDueScheduled` claims rows one at a time so
+   * overlapping cron runs cannot send the same email twice.
+   */
+  async scheduled(_controller: ScheduledController, env: Bindings) {
+    const result = await processDueScheduled(env);
+    console.log("cron scheduled-send", result);
+  },
+} satisfies ExportedHandler<Bindings>;
