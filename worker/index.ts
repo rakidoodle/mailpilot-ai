@@ -15,6 +15,7 @@ import {
 import type { EmailListItem, EmailsResponse } from "../shared/types";
 import { DEMO_USER_ID, type Bindings } from "./env";
 import { processDueScheduled } from "./mailer";
+import analytics from "./routes/analytics";
 import gmail from "./routes/gmail";
 import scheduled from "./routes/scheduled";
 
@@ -461,6 +462,7 @@ app.post("/api/agents/run", async (c) => {
 
 app.route("/api/gmail", gmail);
 app.route("/api/scheduled", scheduled);
+app.route("/api/analytics", analytics);
 
 app.notFound((c) => {
   return c.json(

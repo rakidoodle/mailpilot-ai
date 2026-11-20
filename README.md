@@ -26,12 +26,14 @@ Working today:
 - Cron sender (every 5 minutes) with atomic row claiming, duplicate-send
   protection, attempt tracking, and an audit trail of schedule/approve/cancel/
   send events. "Send due now" triggers the same job manually
+- Live analytics from D1: 14-day email and agent volume, category mix, per-agent
+  success/duration/tokens, cost estimate, and delivery outcomes. No mock series
 - Hono API on Cloudflare Workers, D1 storage, SPA served from the same Worker
-- Offline fallback to bundled demo data when the API is down
+- Inbox and dashboard fall back to bundled demo data when the API is down;
+  analytics and agent activity never substitute fake numbers
 
 Planned (not yet built):
 
-- Live analytics charts
 - Automated Google API integration tests
 - Public demo mode and deployment
 
@@ -128,10 +130,13 @@ and re-running the migration command.
 ## Free-tier reality
 
 - `openrouter/free` and `:free` models are heavily rate-limited; providers
-  return `429` under load. The UI records those failures instead of hiding them.
+  return `429` under load. The UI records those failures instead of hiding them,
+  and analytics show the real success rate.
 - Free models often emit prose around JSON. Parsing is tolerant (first balanced
   object) and each agent retries once on invalid output.
 - Paid models are blocked unless `ALLOW_PAID_MODELS=true`. Keep it off for $0.
+- Analytics uses CSS bars instead of a chart library, so it adds no bundle cost.
+  Day buckets are UTC and the window is 14 days.
 - Cloudflare Workers, D1, and Cron Triggers have free allowances but a deployed
   multi-account Gmail app may need Google verification.
 - Cron runs every 5 minutes, so a scheduled email can go out up to 5 minutes
@@ -160,6 +165,7 @@ and re-running the migration command.
 | `POST /api/scheduled/:id/approve` | Arm a pending email for sending |
 | `POST /api/scheduled/:id/cancel` | Cancel a pending or failed email |
 | `POST /api/scheduled/process` | Run the due-queue job immediately |
+| `GET /api/analytics` | Aggregates for emails, agents, and delivery outcomes |
 
 Unknown `/api/*` paths return JSON `404`. There is no user authentication yet:
 all routes operate as the seeded demo user `usr_demo`. Every Gmail query filters
@@ -199,13 +205,14 @@ npm run db:migrate:remote    # apply to the deployed D1 database
 npm test
 ```
 
-35 unit tests (Vitest): model pricing/filtering, tolerant JSON parsing, cost
+43 unit tests (Vitest): model pricing/filtering, tolerant JSON parsing, cost
 estimation, Zod schema rejection, agent retry and failure isolation, OpenRouter
 HTTP errors, AES-GCM round-trip and tamper rejection, PKCE derivation, OAuth URL
 parameters, Gmail message/body mapping, token refresh success/failure, raw MIME
-building (CRLF, base64 body, RFC 2047 subjects, header-injection stripping), and
-the due-queue sender (missing credentials, lost claim, failed decryption, cron
-wiring). No network calls: `fetch` is mocked.
+building (CRLF, base64 body, RFC 2047 subjects, header-injection stripping), the
+due-queue sender (missing credentials, lost claim, failed decryption, cron
+wiring), and analytics aggregation (rates, weighted durations, UTC day buckets,
+gap filling). No network calls: `fetch` is mocked.
 
 ## Environment variables
 
@@ -250,7 +257,7 @@ shows as `failed` with the provider error.
    live connection pending Google credentials)
 7. Scheduling — approval, cron sending, statuses (code complete, live delivery
    pending Google credentials)
-8. Analytics and broader tests
+8. Analytics and broader tests ✅
 9. Deployment, demo mode, portfolio docs
 
 ## License
