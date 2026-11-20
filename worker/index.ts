@@ -13,12 +13,8 @@ import {
   type ModelInfo,
 } from "./openrouter";
 import type { EmailListItem, EmailsResponse } from "../shared/types";
-
-interface Bindings {
-  DB: D1Database;
-  OPENROUTER_API_KEY?: string;
-  ALLOW_PAID_MODELS?: string;
-}
+import { DEMO_USER_ID, type Bindings } from "./env";
+import gmail from "./routes/gmail";
 
 interface EmailRow {
   id: string;
@@ -103,7 +99,7 @@ async function readSettings(env: Bindings): Promise<SettingsRow> {
   const row = await env.DB.prepare(
     "SELECT openrouter_model FROM settings WHERE user_id = ?",
   )
-    .bind("usr_demo")
+    .bind(DEMO_USER_ID)
     .first<SettingsRow>();
   return row ?? { openrouter_model: null };
 }
@@ -115,6 +111,8 @@ app.get("/api/health", async (c) => {
       ok: true,
       database: "up",
       openrouter: c.env.OPENROUTER_API_KEY ? "configured" : "missing_key",
+      gmail: c.env.GOOGLE_CLIENT_ID ? "configured" : "missing_client",
+      tokenEncryption: c.env.TOKEN_ENCRYPTION_KEY ? "configured" : "missing_key",
     });
   } catch {
     return c.json({ ok: false, database: "down" }, 503);
@@ -253,7 +251,7 @@ app.put("/api/settings/model", async (c) => {
          openrouter_model = excluded.openrouter_model,
          updated_at = excluded.updated_at`,
     )
-      .bind("usr_demo", modelId)
+      .bind(DEMO_USER_ID, modelId)
       .run();
 
     return c.json({ model: modelId });
@@ -452,6 +450,8 @@ app.post("/api/agents/run", async (c) => {
     );
   }
 });
+
+app.route("/api/gmail", gmail);
 
 app.notFound((c) => {
   return c.json(

@@ -4,3 +4,14 @@ OPENROUTER_API_KEY=
 
 # Paid OpenRouter models stay disabled unless this is "true".
 # ALLOW_PAID_MODELS=false
+
+# Google OAuth (console.cloud.google.com > APIs & Services > Credentials)
+# Authorized redirect URI: http://localhost:5173/api/gmail/callback
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# 32-byte AES-GCM key for refresh tokens: openssl rand -base64 32
+TOKEN_ENCRYPTION_KEY=
+
+# Public origin used to build the OAuth redirect. Defaults to localhost:5173.
+# APP_URL=https://your-app.workers.dev

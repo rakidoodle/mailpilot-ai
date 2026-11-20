@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Lock, Search, Sparkles } from "lucide-react";
+import { GmailAccountsCard } from "../components/GmailAccountsCard";
 import { PageHeader } from "../components/PageHeader";
 
 interface ModelOption {
@@ -199,25 +200,7 @@ export function Settings() {
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-900">
-              Gmail accounts
-            </h2>
-          </div>
-          <p className="mt-2 text-sm text-slate-500">
-            No accounts connected. Google OAuth and multi-account support arrive
-            in Milestone 6.
-          </p>
-          <button
-            type="button"
-            disabled
-            className="mt-4 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-400"
-          >
-            Connect Gmail
-          </button>
-        </section>
+        <GmailAccountsCard />
       </div>
     </div>
   );
